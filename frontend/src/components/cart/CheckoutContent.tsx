@@ -8,6 +8,10 @@ import { CartItem, saveShippingInfo } from "../../store/features/cartSlice"; // 
 import CustomSelect from "../select/CustomSelect";
 import PaymentModal from "../modal/PaymentModal";
 import { toast } from "react-toastify";
+import { useLoginMutation, useRegisterMutation } from "../../store/api/authApi";
+import { setUser, setIsAuthenticated, setToken } from "../../store/features/userSlice";
+import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 interface FormEventHandler {
   (event: React.FormEvent<HTMLFormElement>): void;
@@ -15,9 +19,15 @@ interface FormEventHandler {
 
 const CheckoutContent = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const cartItems = useSelector((state: RootState) => state.cart?.cartItems ?? []); // Use cartItems, not items
+  const isAuthenticated = useSelector((state: RootState) => state.user.isAuthenticated);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [isFormValid, setIsFormValid] = useState(false);
+  const [login, { isLoading: isLoginLoading, error: loginError }] = useLoginMutation();
+  const [register, { isLoading: isRegisterLoading, error: registerError }] = useRegisterMutation();
 
   const subtotal = cartItems.reduce(
     (total, item) => total + (item.price || 0) * (item.quantity || 0),
@@ -30,8 +40,7 @@ const CheckoutContent = () => {
     { value: "3", label: "China" },
     { value: "4", label: "Japan" },
     { value: "5", label: "Bangladesh" },
-  ];
-  const handleForm: FormEventHandler = (event) => {
+  ];  const handleForm: FormEventHandler = (event) => {
     event.preventDefault();
     const form = event.target as HTMLFormElement;
     const formData = new FormData(form);
@@ -61,11 +70,18 @@ const CheckoutContent = () => {
       return;
     }
 
+    // Check if user is authenticated before proceeding to payment
+    if (!isAuthenticated) {
+      dispatch(saveShippingInfo(shippingInfo));
+      setIsFormValid(true);
+      setShowLoginModal(true);
+      return;
+    }
+
     dispatch(saveShippingInfo(shippingInfo));
     setIsFormValid(true);
     setShowPaymentModal(true);
   };
-
   const handleConfirmOrder = (paymentMethod: string) => {
     // Here you would typically integrate with your payment processing
     console.log("Order confirmed with payment method:", paymentMethod);
@@ -78,6 +94,264 @@ const CheckoutContent = () => {
     
     // Reset form after successful order
     setIsFormValid(false);
+  };
+
+  // Login Form Modal
+  const LoginModal = () => {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      try {
+        const response = await login({ email, password }).unwrap();
+          // Handle current backend response structure
+        if (response.token) {
+          dispatch(setUser({
+            id: response._id,  // Using _id from root
+            name: response.name,
+            email: response.email
+          }));
+          
+          dispatch(setToken(response.token));
+          dispatch(setIsAuthenticated(true));
+          toast.success("Login Successful");
+          setShowLoginModal(false);
+          
+          // After successful login, show payment modal if form was valid
+          if (isFormValid) {
+            setShowPaymentModal(true);
+          }
+        } else {
+          toast.error("Login failed - invalid response");
+        }
+      } catch (error: any) {
+        console.error("Login error:", error);
+        toast.error(error.data?.message || "Login failed");
+      }
+    };
+
+    return (
+      <div className="modal fade show" style={{ display: "block" }} aria-modal="true" role="dialog">
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Login to Continue</h5>
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setShowLoginModal(false)}
+                aria-label="Close"
+              ></button>
+            </div>
+            <div className="modal-body">
+              <p className="text-muted mb-3">Please log in to complete your order.</p>
+              <form onSubmit={handleSubmit}>
+                <div className="mb-3">
+                  <input
+                    className="form-control"
+                    placeholder="Email*"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <input
+                    className="form-control"
+                    placeholder="Password*"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
+                </div>
+                {loginError && (
+                  <div className="alert alert-danger">
+                    {(loginError as any).data?.message || "Login failed"}
+                  </div>
+                )}
+                <button type="submit" className="btn btn-primary w-100" disabled={isLoginLoading}>
+                  {isLoginLoading ? "Logging in..." : "Login & Continue"}
+                </button>
+              </form>
+              <div className="mt-3 text-center">
+                <p className="mt-2">
+                  Don't have an account?{" "}
+                  <button
+                    className="btn btn-link p-0"
+                    onClick={() => {
+                      setShowLoginModal(false);
+                      setShowRegisterModal(true);
+                    }}
+                  >
+                    Register Now
+                  </button>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Register Form Modal
+  const RegisterModal = () => {
+    const [formData, setFormData] = useState({
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    });
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+
+      if (formData.password !== formData.confirmPassword) {
+        toast.error("Passwords do not match");
+        return;
+      }
+
+      if (formData.password.length < 6) {
+        toast.error("Password must be at least 6 characters");
+        return;
+      }
+
+      try {
+        const response = await register({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }).unwrap();        if (response.token) {
+          dispatch(setUser({
+            id: response._id,
+            name: response.name,
+            email: response.email
+          }));
+          
+          dispatch(setToken(response.token));
+          dispatch(setIsAuthenticated(true));
+          toast.success("Registration Successful");
+          setShowRegisterModal(false);
+          
+          // After successful registration, show payment modal if form was valid
+          if (isFormValid) {
+            setShowPaymentModal(true);
+          }
+        } else {
+          toast.error("Registration failed - invalid response");
+        }
+      } catch (error: any) {
+        console.error("Register error:", error);
+        toast.error(error.data?.message || "Registration failed");
+      }
+    };
+
+    return (
+      <div className="modal fade show" style={{ display: "block" }} aria-modal="true" role="dialog">
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Create Account</h5>
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setShowRegisterModal(false)}
+                aria-label="Close"
+              ></button>
+            </div>
+            <div className="modal-body">
+              <p className="text-muted mb-3">Create an account to complete your order.</p>
+              <form onSubmit={handleSubmit}>
+                <div className="mb-3">
+                  <input
+                    className="form-control"
+                    placeholder="Full Name*"
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    autoComplete="name"
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <input
+                    className="form-control"
+                    placeholder="Email*"
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <input
+                    className="form-control"
+                    placeholder="Password*"
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <input
+                    className="form-control"
+                    placeholder="Confirm Password*"
+                    type="password"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+                {registerError && (
+                  <div className="alert alert-danger">
+                    {(registerError as any).data?.message || "Registration failed"}
+                  </div>
+                )}
+                <button type="submit" className="btn btn-primary w-100" disabled={isRegisterLoading}>
+                  {isRegisterLoading ? "Creating Account..." : "Register & Continue"}
+                </button>
+              </form>
+              <div className="mt-3 text-center">
+                <p className="mt-2">
+                  Already have an account?{" "}
+                  <button
+                    className="btn btn-link p-0"
+                    onClick={() => {
+                      setShowRegisterModal(false);
+                      setShowLoginModal(true);
+                    }}
+                  >
+                    Login
+                  </button>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -285,8 +559,7 @@ const CheckoutContent = () => {
               </div>
             </form>
           </div>
-        </div>
-      </div>
+        </div>      </div>
       
       {/* Payment Modal */}
       <PaymentModal
@@ -295,6 +568,12 @@ const CheckoutContent = () => {
         orderTotal={subtotal}
         onConfirmOrder={handleConfirmOrder}
       />
+
+      {/* Login Modal */}
+      {showLoginModal && <LoginModal />}
+      
+      {/* Register Modal */}
+      {showRegisterModal && <RegisterModal />}
     </div>
   );
 };
