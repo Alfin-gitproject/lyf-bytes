@@ -221,7 +221,7 @@ const SidebarInfo: React.FC<HeaderSearchProps> = ({ closeInfoBar, isInfoOpen, to
       
         toast.success("Registration successful!");
         setShowRegisterModal(false);
-        navigate("/my-account");
+        navigate("/my-accounts");
       } catch (error: any) {
         console.error("Registration error:", error);
         toast.error(error.data?.error || "Registration failed");
@@ -348,7 +348,7 @@ const SidebarInfo: React.FC<HeaderSearchProps> = ({ closeInfoBar, isInfoOpen, to
                 {isAuthenticated ? (
                   <>
                     <li>
-                      <Link className="dropdown-item hover:bg-gray-200" to="/my-account">
+                      <Link className="dropdown-item hover:bg-gray-200" to="/my-accounts">
                         My Account
                       </Link>
                     </li>

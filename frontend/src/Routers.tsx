@@ -46,7 +46,7 @@ import PrivacyPolicyPage from "./pages/privacy-policy/PrivacyPolicy";
 
 import DeliveryReturnPage from "./pages/delivery-return/DeliveryReturnPage";
 import TermsConditionsPage from "./pages/terms-conditions/termsCondition";
-import MyAccountPage from "./pages/my-account/MyAccount";
+import MyAccountPage from "./pages/my-accounts/MyAccount";
 
 const Routers = () => {
   return (
@@ -78,7 +78,7 @@ const Routers = () => {
         <Route path="/food-menu" element={<FoodMenuPage />} />
         <Route path="/food-menu-2" element={<FoodMenu2Page />} />
         <Route path="/food-menu-3" element={<FoodMenu3Page />} />
-        <Route path="/my-account" element={<MyAccountPage/>}/>
+        <Route path="/my-accounts" element={<MyAccountPage/>}/>
         <Route path="/blog-standard" element={<BlogStandardPage />} />
         <Route path="/blog-standard?:page?" element={<BlogStandardPage />} />
         <Route path="/blog-with-sidebar" element={<BlogWithSidebarPage />} />

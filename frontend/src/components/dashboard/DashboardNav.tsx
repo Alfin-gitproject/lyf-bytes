@@ -1,49 +1,55 @@
-// src/components/othersPages/dashboard/DashboardNav.tsx
-import { useState } from "react";
+"use client";
+import { Link } from 'react-router-dom';
+import { usePathname } from "next/navigation";
+import { useLogoutMutation } from "../../store/api/authApi";
+import { useRouter } from "next/navigation";
+import { useGetMeQuery } from "../../store/api/userApi";
 import { useDispatch, useSelector } from "react-redux";
-import { clearUser } from "../../store/features/userSlice";
-import { useNavigate, useLocation, Link } from "react-router-dom";
-import axios from "axios";
-import { toast } from "react-hot-toast";
-
+import { useEffect } from "react";
+import { setIsAuthenticated } from "../../store/features/userSlice";
 const accountLinks = [
   { href: "/my-account", label: "Dashboard" },
   { href: "/my-account-orders", label: "Orders" },
-  { href: "/my-account-address", label: "Addresses" },
+  // { href: "/my-account-address", label: "Addresses" },
   { href: "/my-account-edit", label: "Account Details" },
-  { href: "/my-account-wishlist", label: "Wishlist" },
 ];
 
 export default function DashboardNav() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const dispatch = useDispatch();
-  const { user } = useSelector((state: any) => state.user); // Changed from state.auth to state.user
-  const [isLoading, setIsLoading] = useState(false);
-  const location = useLocation();
+  const [logout, { isLoading }] = useLogoutMutation();
+  const { refetch,isLoading:userLoading } = useGetMeQuery();
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log("insidee")
+      router.push("/");
+    }
+  }, [isAuthenticated, router]);
 
   const handleLogout = async () => {
     try {
-      setIsLoading(true);
-      await axios.post("/api/auth/logout", {}, {
-        headers: { Authorization: `Bearer ${user?.token}` },
-      });
-      dispatch(clearUser());
-      toast.success("Logged out successfully");
-      navigate("/");
+      await logout().unwrap(); // ✅ Logs out the user
+      await refetch(); // ✅ Refetch user data after logout to update state
+      router.push("/"); // ✅ Redirect to home
+      dispatch(setIsAuthenticated(false));
     } catch (error) {
-      toast.error("Logout failed");
-      console.error(error);
-      setIsLoading(false);
+      console.error("Logout failed:", error);
     }
   };
+
+  const pathname = usePathname();
 
   return (
     <ul className="my-account-nav">
       {accountLinks.map((link, index) => (
         <li key={index}>
           <Link
-            to={link.href}
-            className={`my-account-nav-item ${location.pathname === link.href ? "active" : ""}`}
+            href={link.href}
+            className={`my-account-nav-item ${
+              pathname == link.href ? "active" : ""
+            }`}
           >
             {link.label}
           </Link>
@@ -57,7 +63,7 @@ export default function DashboardNav() {
             cursor: isLoading ? "not-allowed" : "pointer",
           }}
           className="my-account-nav-item"
-          disabled={isLoading}
+          disabled={isLoading} // ✅ Disable button while logging out
         >
           {isLoading ? "Logging out..." : "Logout"}
         </button>
