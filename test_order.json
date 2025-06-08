@@ -1,0 +1,31 @@
+{
+  "orderItems": [
+    {
+      "name": "Margherita Pizza",
+      "image": "1.png",
+      "uploadedImage": ["https://example.com/uploaded_image1.jpg"],
+      "quantity": 1,
+      "price": "12.00",
+      "product": "1"
+    }
+  ],
+  "shippingInfo": {
+    "name": "Test User",
+    "address": "123 Test Street",
+    "city": "Test City",
+    "state": "Test State",
+    "phoneNo": "1234567890",
+    "pinCode": "12345",
+    "country": "India",
+    "email": "test@example.com"
+  },
+  "itemsPrice": 12.00,
+  "taxAmount": 0,
+  "shippingAmount": 0,
+  "totalAmount": 12.00,
+  "paymentMethod": "COD",
+  "paymentInfo": {
+    "id": "test_payment_123",
+    "status": "COD"
+  }
+}
