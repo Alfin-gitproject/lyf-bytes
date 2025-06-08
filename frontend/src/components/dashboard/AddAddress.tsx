@@ -4,9 +4,14 @@ import { useState } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { countries } from "@/data/countries";
-import { states } from "@/data/states";
 
-export default function AddAddress({ activeEdit, setActiveEdit, onSuccess }) {
+interface AddAddressProps {
+  activeEdit: boolean;
+  setActiveEdit: (active: boolean) => void;
+  onSuccess: () => void;
+}
+
+export default function AddAddress({ activeEdit, setActiveEdit, onSuccess }: AddAddressProps) {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -19,15 +24,16 @@ export default function AddAddress({ activeEdit, setActiveEdit, onSuccess }) {
     isDefault: false,
   });
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
     setFormData({
       ...formData,
       [name]: type === "checkbox" ? checked : value,
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const user = JSON.parse(localStorage.getItem("user"));

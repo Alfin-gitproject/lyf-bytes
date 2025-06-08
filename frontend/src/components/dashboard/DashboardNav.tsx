@@ -5,6 +5,7 @@ import { clearUser } from "../../store/features/userSlice";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import { RootState } from "../../store/store";
 
 const accountLinks = [
   { href: "/my-account", label: "Dashboard" },
@@ -17,7 +18,7 @@ const accountLinks = [
 export default function DashboardNav() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { user } = useSelector((state: any) => state.user); // Changed from state.auth to state.user
+  const { user } = useSelector((state: RootState) => state.user);
   const [isLoading, setIsLoading] = useState(false);
   const location = useLocation();
 

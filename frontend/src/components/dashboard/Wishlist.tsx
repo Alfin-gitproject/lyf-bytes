@@ -28,12 +28,12 @@ export default function Wishlist() {
               ))}
             </div>
             {!wishListItems.length && (
-              <div className="row align-items-center w-100" style={{ rowGap: "20px" }}>
-                <div className="col-lg-3 col-md-6 fs-18">Your wishlist is empty</div>
-                <div className="col-lg-3 col-md-6">
+              <div className="text-center py-8">
+                <div className="mb-4">
+                  <p className="text-lg mb-4">Your wishlist is empty</p>
                   <Link
                     to="/shop-default"
-                    className="tf-btn btn-fill animate-hover-btn radius-3 w-100 justify-content-center"
+                    className="tf-btn btn-fill animate-hover-btn radius-3 justify-content-center"
                   >
                     Explore Products!
                   </Link>

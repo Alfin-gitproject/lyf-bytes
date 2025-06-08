@@ -99,8 +99,16 @@ export default function Orders() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="text-center">
-                          No orders found.
+                        <td colSpan={5} className="text-center py-8">
+                          <div>
+                            <p className="text-lg mb-4">No orders found.</p>
+                            <Link
+                              to="/shop-default"
+                              className="tf-btn btn-fill animate-hover-btn radius-3 justify-content-center"
+                            >
+                              Start Shopping
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     )}

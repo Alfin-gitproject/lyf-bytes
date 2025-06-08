@@ -102,8 +102,35 @@ export default function OrderDetails() {
     };
   }, []);
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (isLoading) {
+    return (
+      <div className="about-style-one-area default-padding">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <p>Loading order details...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="about-style-one-area default-padding">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <p className="text-red-500 mb-4">Error: {error}</p>
+            <Link
+              to="/my-account-orders"
+              className="tf-btn btn-fill animate-hover-btn radius-3 justify-content-center"
+            >
+              Back to Orders
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="about-style-one-area default-padding">

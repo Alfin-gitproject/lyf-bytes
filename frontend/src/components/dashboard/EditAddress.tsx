@@ -4,9 +4,29 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { countries } from "@/data/countries";
-import { states } from "@/data/states";
 
-export default function EditAddress({ activeAdd, setActiveAdd, address, onSuccess }) {
+interface Address {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  company: string;
+  address: string;
+  city: string;
+  country: string;
+  province: string;
+  postalCode: string;
+  phone: string;
+  isDefault: boolean;
+}
+
+interface EditAddressProps {
+  activeAdd: boolean;
+  setActiveAdd: (active: boolean) => void;
+  address: Address;
+  onSuccess: () => void;
+}
+
+export default function EditAddress({ activeAdd, setActiveAdd, address, onSuccess }: EditAddressProps) {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -37,15 +57,16 @@ export default function EditAddress({ activeAdd, setActiveAdd, address, onSucces
     }
   }, [address]);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
     setFormData({
       ...formData,
       [name]: type === "checkbox" ? checked : value,
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const user = JSON.parse(localStorage.getItem("user"));
