@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "cloudflared": "^0.7.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
   }
 }

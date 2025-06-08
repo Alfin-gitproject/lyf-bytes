@@ -4,6 +4,12 @@ export const orderApi = createApi({
   reducerPath: "orderApi",
   baseQuery: fetchBaseQuery({
     baseUrl: "/api",
+    credentials: 'include', // This ensures cookies are sent with requests
+    prepareHeaders: (headers, { getState }) => {
+      // Set content type for JSON requests
+      headers.set('Content-Type', 'application/json');
+      return headers;
+    },
   }),
   endpoints: (builder) => ({
     createNewOrder: builder.mutation({

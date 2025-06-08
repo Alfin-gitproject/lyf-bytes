@@ -4,6 +4,7 @@ import Order from "@/models/Order";
 import { NextResponse } from "next/server";
 import User from "@/models/User";
 import { createShiprocketOrder } from "@/lib/shipRocket/createShipRocketOrder";
+import mongoose from "mongoose";
 export async function POST(req) {
   try {
     await dbConnect();
@@ -11,9 +12,7 @@ export async function POST(req) {
 
     if (!user) return;
 
-    const body = await req.json();
-
-    const {
+    const body = await req.json();    const {
       orderItems,
       shippingInfo,
       itemsPrice,
@@ -22,10 +21,34 @@ export async function POST(req) {
       totalAmount,
       paymentMethod,
       paymentInfo,
-    } = body;
+    } = body;    // Validate and convert product IDs to ObjectIds
+    const processedOrderItems = orderItems.map(item => {
+      let productId = item.product;
+      
+      // If it's already a valid ObjectId, use it
+      if (mongoose.Types.ObjectId.isValid(productId)) {
+        productId = new mongoose.Types.ObjectId(productId);
+      } else {
+        // For static product data (like "1", "2"), generate a consistent ObjectId
+        // We'll create a deterministic ObjectId based on the product ID
+        const staticIdBuffer = Buffer.alloc(12);
+        staticIdBuffer.write(productId.toString().padStart(12, '0'));
+        productId = new mongoose.Types.ObjectId(staticIdBuffer);
+        
+        console.log(`Converted static product ID "${item.product}" to ObjectId: ${productId}`);
+      }
+      
+      return {
+        ...item,
+        product: productId,
+        // Ensure required fields are present
+        image: item.image || item.uploadedImage?.[0] || '',
+        uploadedImage: item.uploadedImage || []
+      };
+    });
 
     const order = await Order.create({
-      orderItems,
+      orderItems: processedOrderItems,
       shippingInfo,
       itemsPrice,
       taxAmount,

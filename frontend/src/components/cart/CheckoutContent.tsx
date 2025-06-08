@@ -12,6 +12,8 @@ import { useLoginMutation, useRegisterMutation } from "../../store/api/authApi";
 import { setUser, setIsAuthenticated, setToken } from "../../store/features/userSlice";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
+import { useCreateNewOrderMutation, useRazorpayCheckoutSessionMutation, useRazorpayWebhookMutation } from "../../store/api/orderApi";
+import { clearCart } from "../../store/features/cartSlice";
 
 interface FormEventHandler {
   (event: React.FormEvent<HTMLFormElement>): void;
@@ -24,10 +26,14 @@ const CheckoutContent = () => {
   const isAuthenticated = useSelector((state: RootState) => state.user.isAuthenticated);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [isFormValid, setIsFormValid] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);  const [isFormValid, setIsFormValid] = useState(false);
   const [login, { isLoading: isLoginLoading, error: loginError }] = useLoginMutation();
   const [register, { isLoading: isRegisterLoading, error: registerError }] = useRegisterMutation();
+  const [createNewOrder, { isLoading: isCreatingOrder }] = useCreateNewOrderMutation();
+  const [razorpayCheckoutSession, { isLoading: isCreatingSession }] = useRazorpayCheckoutSessionMutation();
+  const [razorpayWebhook] = useRazorpayWebhookMutation();
+  const user = useSelector((state: RootState) => state.user.user);
+  const shippingInfo = useSelector((state: RootState) => state.cart.shippingInfo);
 
   const subtotal = cartItems.reduce(
     (total, item) => total + (item.price || 0) * (item.quantity || 0),
@@ -81,19 +87,134 @@ const CheckoutContent = () => {
     dispatch(saveShippingInfo(shippingInfo));
     setIsFormValid(true);
     setShowPaymentModal(true);
-  };
-  const handleConfirmOrder = (paymentMethod: string) => {
-    // Here you would typically integrate with your payment processing
-    console.log("Order confirmed with payment method:", paymentMethod);
-    
-    // For demonstration, we'll just show different messages based on payment method
-    if (paymentMethod !== "cod") {
-      toast.info(`Redirecting to ${paymentMethod} payment gateway...`);
-      // In a real app, you'd redirect to payment processor here
+  };  const handleConfirmOrder = async (paymentMethod: string) => {
+    try {      // Prepare order data
+      const orderData = {
+        orderItems: cartItems.map(item => ({
+          name: item.name,
+          image: item.image || '', // Required field for Order schema
+          uploadedImage: item.uploadedImage ? (Array.isArray(item.uploadedImage) ? item.uploadedImage : [item.uploadedImage]) : [],
+          quantity: item.quantity,
+          price: item.price.toString(),
+          product: item.product
+        })),
+        shippingInfo: {
+          fullName: `${shippingInfo?.firstName || ''} ${shippingInfo?.lastName || ''}`.trim(),
+          address: shippingInfo?.streetAddress || '',
+          email: shippingInfo?.email || user?.email || '',
+          state: shippingInfo?.state || '',
+          city: shippingInfo?.city || '',
+          phoneNo: shippingInfo?.phone || '',
+          zipCode: shippingInfo?.postcode || '',
+          country: shippingInfo?.country || 'India',
+        },
+        itemsPrice: subtotal,
+        taxAmount: 0, // You can calculate tax if needed
+        shippingAmount: 0, // Free shipping as mentioned in UI
+        totalAmount: subtotal,
+        paymentMethod: paymentMethod === "cod" ? "COD" : "Online",
+        paymentInfo: {
+          id: paymentMethod === "cod" ? "" : "pending",
+          status: paymentMethod === "cod" ? "COD" : "Pending",
+        },
+      };
+
+      if (paymentMethod === "cod") {
+        // For COD, create order directly
+        const response = await createNewOrder(orderData).unwrap();
+        
+        if (response.success) {
+          toast.success("Order placed successfully! You will pay on delivery.");
+          dispatch(clearCart());
+          navigate("/my-account");
+        } else {
+          toast.error("Failed to place order. Please try again.");
+        }
+      } else {
+        // For online payment, create Razorpay session
+        const sessionData = {
+          orderData: {
+            ...orderData,
+            orderItems: cartItems,
+            shippingInfo: orderData.shippingInfo
+          }
+        };
+
+        const session = await razorpayCheckoutSession(sessionData).unwrap();
+        
+        if (session && session.id) {
+          // Initialize Razorpay payment
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.onload = () => {            const options = {
+              key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_key', // You should add this to env
+              amount: session.amount,
+              currency: session.currency,
+              name: "LYF Bytes",
+              description: "Order Payment",
+              order_id: session.id,
+              handler: async function (response: any) {
+                try {
+                  // Process payment success
+                  const webhookData = {
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                    shippingInfo: orderData.shippingInfo,
+                    cartItems: cartItems,
+                    itemsPrice: subtotal,
+                    shippingPrice: 0,
+                    totalPrice: subtotal,
+                    taxPrice: 0,
+                    orderNotes: shippingInfo?.comments || '',
+                    couponApplied: 'No'
+                  };
+                  
+                  const webhookResponse = await razorpayWebhook(webhookData).unwrap();
+                  
+                  if (webhookResponse.success) {
+                    toast.success("Payment successful! Order placed.");
+                    dispatch(clearCart());
+                    navigate("/my-account");
+                  } else {
+                    toast.error("Payment verification failed. Please contact support.");
+                  }
+                } catch (error: any) {
+                  console.error("Payment verification error:", error);
+                  toast.error("Payment verification failed. Please contact support.");
+                }
+              },
+              prefill: {
+                name: orderData.shippingInfo.fullName,
+                email: orderData.shippingInfo.email,
+                contact: orderData.shippingInfo.phoneNo
+              },
+              theme: {
+                color: "#3399cc"
+              },
+              modal: {
+                ondismiss: function() {
+                  toast.error("Payment cancelled");
+                }
+              }
+            };
+            
+            const razorpay = new (window as any).Razorpay(options);
+            razorpay.open();
+          };
+          document.body.appendChild(script);
+        } else {
+          toast.error("Failed to initialize payment. Please try again.");
+        }
+      }
+    } catch (error: any) {
+      console.error("Order creation error:", error);
+      toast.error(error.data?.message || "Failed to place order. Please try again.");
     }
     
-    // Reset form after successful order
+    // Reset form state
     setIsFormValid(false);
+    setShowPaymentModal(false);
   };
 
   // Login Form Modal
